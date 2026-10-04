@@ -1,13 +1,13 @@
-# meilisearch-fumadocs-adapter
+# @rambutanek/meilisearch-fumadocs-adapter
 
 Meilisearch search adapter for [Fumadocs](https://fumadocs.dev) — community maintained, **not** an official Meilisearch or Fumadocs package.
 
-Search results are built server-side from your Meilisearch index: hits are mapped into Fumadocs-style results, markdown/MDX is re-rendered around the `<mark>` highlight tags, code blocks are syntax-highlighted with Shiki, and results are paginated. The browser side is a React hook that feeds a search dialog.
+Search results are built server-side from your Meilisearch index: hits are mapped into Fumadocs-style results, each chunk's markdown/MDX is parsed and re-rendered to HTML, query matches are wrapped in `<mark>`, code blocks are syntax-highlighted with Shiki, and results are paginated. The browser side is a React hook that feeds a search dialog.
 
 ## Install
 
 ```bash
-npm install meilisearch-fumadocs-adapter meilisearch
+npm install @rambutanek/meilisearch-fumadocs-adapter meilisearch
 ```
 
 `meilisearch` (the SDK) and `react` are peer dependencies — provide your own instances.
@@ -30,7 +30,10 @@ Each Meilisearch document is expected to have:
 ```ts
 // app/api/meilisearch-search/route.ts
 import { MeiliSearch } from 'meilisearch';
-import { createMeilisearchAPI, createUrlNormalizer } from 'meilisearch-fumadocs-adapter';
+import {
+  createMeilisearchAPI,
+  createUrlNormalizer,
+} from '@rambutanek/meilisearch-fumadocs-adapter';
 
 const client = new MeiliSearch({
   host: process.env.MEILISEARCH_HOST!,
@@ -68,7 +71,7 @@ To power a facet filter dropdown in the UI:
 ```ts
 // app/api/meilisearch-filters/route.ts
 import { MeiliSearch } from 'meilisearch';
-import { fetchFilters } from 'meilisearch-fumadocs-adapter';
+import { fetchFilters } from '@rambutanek/meilisearch-fumadocs-adapter';
 
 export const GET = async (request: Request) => {
   const values = await fetchFilters({
@@ -84,7 +87,7 @@ export const GET = async (request: Request) => {
 
 ```tsx
 'use client';
-import { useMeilisearchSearch } from 'meilisearch-fumadocs-adapter/client';
+import { useMeilisearchSearch } from '@rambutanek/meilisearch-fumadocs-adapter/client';
 
 export function MySearchDialog() {
   const { search, setSearch, query, loadMore, isLoadingMore, hasMore } = useMeilisearchSearch({
@@ -126,7 +129,6 @@ export function MySearchDialog() {
 `params`:
 
 - `delayMs` — debounce for the query, default `100`
-- `allowEmpty` — search on an empty query, default `false`
 
 Returns `MeilisearchDocsSearch`:
 
@@ -136,26 +138,14 @@ Returns `MeilisearchDocsSearch`:
 
 Each `SortedResult` has `id`, `url`, `type` (`page` | `heading` | `text`), `content` (HTML), and `breadcrumbs`.
 
-### Lower-level client functions
-
-```ts
-import { meilisearchSearchPage, meilisearchFilters } from 'meilisearch-fumadocs-adapter/client';
-
-const page = await meilisearchSearchPage(options, 'install', 1);
-// { results, totalHits, totalPages, page }
-
-const values = await meilisearchFilters({ filterAttribute: 'site' });
-// string[]
-```
-
 ## Development
 
 ```bash
 pnpm install
-pnpm dev          # watch build
-pnpm check        # types:check + lint + format:check
-pnpm build        # emit dist/
-pnpm test         # vitest
+pnpm dev
+pnpm check
+pnpm build
+pnpm test
 ```
 
 ## License

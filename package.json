@@ -1,6 +1,6 @@
 {
-  "name": "meilisearch-fumadocs-adapter",
-  "version": "0.1.0",
+  "name": "@rambutanek/meilisearch-fumadocs-adapter",
+  "version": "0.0.1",
   "description": "Meilisearch search adapter for Fumadocs — community maintained",
   "license": "MIT",
   "type": "module",
