@@ -116,6 +116,10 @@ export function createUrlNormalizer({
   };
 }
 
+function escapeFilterValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 function createFilter(
   filterAttribute?: string,
   filterAttributeValue?: string,
@@ -124,10 +128,10 @@ function createFilter(
   const conditions: string[] = [];
 
   if (filterAttribute && filterAttributeValue) {
-    conditions.push(`${filterAttribute} = "${filterAttributeValue}"`);
+    conditions.push(`${filterAttribute} = "${escapeFilterValue(filterAttributeValue)}"`);
   }
   if (language) {
-    conditions.push(`language = "${language}"`);
+    conditions.push(`language = "${escapeFilterValue(language)}"`);
   }
 
   return conditions.length > 0 ? conditions.join(' AND ') : undefined;

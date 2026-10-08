@@ -84,6 +84,10 @@ export async function meilisearchFilters({
   return result;
 }
 
+function requestKey(query: string, optionsKey: string, page: number): string {
+  return JSON.stringify([query, optionsKey, page]);
+}
+
 function useDebounce<T>(value: T, delayMs = 100): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -146,10 +150,14 @@ export function useMeilisearchSearch(
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  const loadingMoreRef = useRef(false);
+  const isFirstPageLoadingRef = useRef(false);
+  const isNextPageLoadingRef = useRef(false);
+  const activeKeyRef = useRef<string>('');
 
   useEffect(() => {
     if (debouncedValue.length === 0) {
+      activeKeyRef.current = requestKey('', optionsKey, 1);
+      isFirstPageLoadingRef.current = false;
       setResults('empty');
       setError(undefined);
       setIsLoading(false);
@@ -158,7 +166,10 @@ export function useMeilisearchSearch(
     }
 
     let interrupt = false;
+    const key = requestKey(debouncedValue, optionsKey, 1);
+    activeKeyRef.current = key;
     setIsLoading(true);
+    isFirstPageLoadingRef.current = true;
 
     (async () => {
       try {
@@ -167,14 +178,15 @@ export function useMeilisearchSearch(
           firstPage.results.length > 0 ? firstPage.results : 'empty';
         const page = { page: firstPage.page, totalPages: firstPage.totalPages };
 
-        if (interrupt) return;
+        if (interrupt || activeKeyRef.current !== key) return;
         setResults(res);
         setPageInfo(page);
         setError(undefined);
       } catch (err) {
-        if (!interrupt) setError(err as Error);
+        if (!interrupt && activeKeyRef.current === key) setError(err as Error);
       } finally {
-        if (!interrupt) setIsLoading(false);
+        if (!interrupt) isFirstPageLoadingRef.current = false;
+        if (!interrupt && activeKeyRef.current === key) setIsLoading(false);
       }
     })();
 
@@ -184,21 +196,33 @@ export function useMeilisearchSearch(
   }, [debouncedValue, optionsKey]);
 
   const loadMore = useCallback(() => {
-    if (loadingMoreRef.current || !debouncedValue || pageInfo.page >= pageInfo.totalPages) {
+    if (
+      isNextPageLoadingRef.current ||
+      isFirstPageLoadingRef.current ||
+      !debouncedValue ||
+      pageInfo.page >= pageInfo.totalPages
+    ) {
       return;
     }
 
-    loadingMoreRef.current = true;
+    const requestedOptions = optionsRef.current;
+    const key = requestKey(debouncedValue, JSON.stringify(requestedOptions), pageInfo.page + 1);
+    activeKeyRef.current = key;
+
+    isNextPageLoadingRef.current = true;
     setIsLoadingMore(true);
 
-    void meilisearchSearchPage(optionsRef.current, debouncedValue, pageInfo.page + 1)
+    void meilisearchSearchPage(requestedOptions, debouncedValue, pageInfo.page + 1)
       .then((next) => {
+        if (activeKeyRef.current !== key) return;
         setResults((current) => [...(current !== 'empty' ? current : []), ...next.results]);
         setPageInfo({ page: next.page, totalPages: next.totalPages });
       })
-      .catch((err: unknown) => setError(err as Error))
+      .catch((err: unknown) => {
+        if (activeKeyRef.current === key) setError(err as Error);
+      })
       .finally(() => {
-        loadingMoreRef.current = false;
+        isNextPageLoadingRef.current = false;
         setIsLoadingMore(false);
       });
   }, [debouncedValue, pageInfo]);

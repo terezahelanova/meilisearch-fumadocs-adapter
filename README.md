@@ -1,6 +1,6 @@
 # @rambutanek/meilisearch-fumadocs-adapter
 
-Meilisearch search adapter for [Fumadocs](https://fumadocs.dev) — community maintained, **not** an official Meilisearch or Fumadocs package.
+Meilisearch search adapter for [Fumadocs](https://fumadocs.dev), **not** an official Meilisearch or Fumadocs package.
 
 Search results are built server-side from your Meilisearch index: hits are mapped into Fumadocs-style results, each chunk's markdown/MDX is parsed and re-rendered to HTML, query matches are wrapped in `<mark>`, code blocks are syntax-highlighted with Shiki, and results are paginated. The browser side is a React hook that feeds a search dialog.
 
@@ -37,19 +37,22 @@ import {
 
 const client = new MeiliSearch({
   host: process.env.MEILISEARCH_HOST!,
-  apiKey: process.env.MEILISEARCH_API_KEY!,
+  apiKey: process.env.MEILISEARCH_KEY!,
 });
 
 export const GET = createMeilisearchAPI({
-  indexUid: 'docs',
+  indexUid: process.env.MEILISEARCH_INDEX ?? 'docs',
   client,
   // optional: restrict results to one facet value
-  filterAttribute: 'site',
+  filterAttribute: process.env.MEILISEARCH_FILTER_ATTRIBUTE,
   filterAttributeValue: 'docs',
   // optional: restrict results to one locale
   language: 'en',
   // optional: rewrite indexed URLs into site routes
-  transformUrl: createUrlNormalizer({ locales: ['cz', 'en'], basePath: '/docs' }),
+  transformUrl: createUrlNormalizer({
+    locales: ['cz', 'en'],
+    basePath: process.env.MEILISEARCH_URL_PREFIX ?? '/docs',
+  }),
 });
 ```
 
@@ -75,9 +78,12 @@ import { fetchFilters } from '@rambutanek/meilisearch-fumadocs-adapter';
 
 export const GET = async (request: Request) => {
   const values = await fetchFilters({
-    indexUid: 'docs',
-    client: new MeiliSearch({ host: ..., apiKey: ... }),
-    filterAttribute: 'site',
+    indexUid: process.env.MEILISEARCH_INDEX ?? 'docs',
+    client: new MeiliSearch({
+      host: process.env.MEILISEARCH_HOST!,
+      apiKey: process.env.MEILISEARCH_KEY!,
+    }),
+    filterAttribute: process.env.MEILISEARCH_FILTER_ATTRIBUTE ?? 'scope',
   });
   return Response.json(values);
 };
