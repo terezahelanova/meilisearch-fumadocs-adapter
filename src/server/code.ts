@@ -2,23 +2,35 @@ import { buildRegexFromQuery } from './highlight';
 import { codeToHtml } from 'shiki';
 import type { ShikiTransformer } from 'shiki';
 import type { Element, ElementContent, Root } from 'hast';
+import type { Code } from 'mdast';
 import type { ParsedCodeBlock } from './types';
+import { remark } from 'remark';
 
-const CODE_FENCE_RE = /^ {0,3}```([^\s`]*)[^\n]*\n([\s\S]*?)\n {0,3}```$/;
+const parser = remark();
 
 export function parseCodeBlock(content: string): ParsedCodeBlock | null {
-  const match = content.trim().match(CODE_FENCE_RE);
-  if (!match) {
+  const trimmed = content.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const code = singleCodeNode(parser.parse(trimmed));
+  if (!code) {
     return null;
   }
 
   return {
-    lang: match[1] || 'text',
-    code: match[2],
+    lang: code.lang || 'text',
+    code: code.value,
   };
 }
 
-const HIGHLIGHT_STYLE = 'background-color: rgba(255, 255, 0, 0.3);';
+function singleCodeNode(tree: { children: unknown[] }): Code | undefined {
+  const first = tree.children[0];
+  return tree.children.length === 1 && first && (first as Code).type === 'code'
+    ? (first as Code)
+    : undefined;
+}
 
 function highlightHastNode(node: Element | Root, regex: RegExp): void {
   if (node.type === 'element' && node.tagName === 'span') {
@@ -41,8 +53,8 @@ function highlightHastNode(node: Element | Root, regex: RegExp): void {
         pushText(text.slice(lastIndex, start));
         children.push({
           type: 'element',
-          tagName: 'span',
-          properties: { class: 'highlight', style: HIGHLIGHT_STYLE },
+          tagName: 'mark',
+          properties: {},
           children: [{ type: 'text', value: match[0] }],
         });
         lastIndex = start + match[0].length;

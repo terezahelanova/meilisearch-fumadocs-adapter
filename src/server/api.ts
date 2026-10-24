@@ -41,7 +41,7 @@ export function createMeilisearchAPI(options: MeilisearchOptions): SearchAPI {
       totalPages = response.totalPages ?? 1;
 
       const results = await mapHitsToSortedResults(hits, trimmedQuery, transformUrl);
-      if (results.length > HITS_PER_PAGE || currentPage >= totalPages) {
+      if (results.length >= HITS_PER_PAGE || currentPage >= totalPages) {
         return { results, totalHits, totalPages, page: currentPage };
       }
 

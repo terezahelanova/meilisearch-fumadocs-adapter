@@ -10,7 +10,7 @@ import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx';
 import type { Options as RemarkRehypeOptions } from 'remark-rehype';
 import type { SortedResult } from '../contracts';
 import type { SearchHit } from './types';
-import { buildRegexFromQuery, createContentHighlighter } from './highlight';
+import { buildRegexFromQuery } from './highlight';
 import { highlightCodeBlock, parseCodeBlock } from './code';
 
 export async function mapHitsToSortedResults(
@@ -18,7 +18,6 @@ export async function mapHitsToSortedResults(
   query: string,
   transformUrl: (url: string) => string = (url) => url,
 ): Promise<SortedResult[]> {
-  const highlighter = createContentHighlighter(query);
   const results: SortedResult[] = [];
   const seenSections = new Set<string>();
   let previousSectionKey: string | undefined;
@@ -39,7 +38,7 @@ export async function mapHitsToSortedResults(
       results.push({
         id: `${url}_${idCounter++}`,
         type: 'page',
-        content: highlighter.highlightMarkdown(heading),
+        content: await renderHeading(heading, query),
         breadcrumbs: [hit.pageTitle],
         url,
       });
@@ -141,7 +140,7 @@ function createProcessor(strict: boolean) {
     .use(rehypeRaw);
 }
 
-async function renderContent(rawContent: string, query: string): Promise<string> {
+async function toHighlightedHast(rawContent: string, query: string): Promise<HastRoot> {
   let tree: Root;
   let processor: ReturnType<typeof createProcessor>;
 
@@ -160,7 +159,20 @@ async function renderContent(rawContent: string, query: string): Promise<string>
   const regex = buildRegexFromQuery(query);
   if (regex) highlightHast(hast, regex);
 
-  return toHtml(hast).trim();
+  return hast;
+}
+
+async function renderContent(rawContent: string, query: string): Promise<string> {
+  return toHtml(await toHighlightedHast(rawContent, query)).trim();
+}
+
+async function renderHeading(heading: string, query: string): Promise<string> {
+  if (!heading) return '';
+  const hast = await toHighlightedHast(heading, query);
+  const paragraph = hast.children.find(
+    (child): child is Element => child.type === 'element' && child.tagName === 'p',
+  );
+  return toHtml({ type: 'root', children: paragraph ? paragraph.children : hast.children }).trim();
 }
 
 function pruneEmptyParagraphs(parent: { children: RootContent[] }): void {

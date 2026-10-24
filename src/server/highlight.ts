@@ -1,6 +1,5 @@
 import { remark } from 'remark';
-import { visit } from 'unist-util-visit';
-import type { Root } from 'mdast';
+import type { Html, InlineCode, Root, RootContent, Text } from 'mdast';
 
 export interface HighlightedText<Content = string> {
   type: 'text';
@@ -14,24 +13,26 @@ export function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function buildRegexFromQuery(q: string): RegExp | null {
-  const trimmed = q.trim();
-  if (trimmed.length === 0) return null;
-  const terms = Array.from(new Set(trimmed.split(/\s+/).filter(Boolean)));
-  if (terms.length === 0) return null;
-  const escaped = terms.map(escapeRegExp).join('|');
-  return new RegExp(`(${escaped})`, 'gi');
+/**
+ * Implementation from Fumadocs core package
+ */
+export function buildRegexFromQuery(query: string): RegExp | null {
+  const source = query
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\s+/g, '|');
+  return source ? new RegExp(source, 'gi') : null;
 }
 
 const processor = remark();
 
+/**
+ * Implementation from Fumadocs core package
+ */
 export function createContentHighlighter(query: string) {
   const regex = buildRegexFromQuery(query);
 
   return {
-    /**
-     * Implementation from Fumadocs
-     */
     highlight(content: string): HighlightedText[] {
       if (!regex) return [{ type: 'text', content }];
       const out: HighlightedText[] = [];
@@ -74,45 +75,63 @@ export function createContentHighlighter(query: string) {
   };
 }
 
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+interface Segment {
+  value: string;
+  match: boolean;
+}
+
+function splitByRegex(value: string, regex: RegExp): Segment[] | null {
+  regex.lastIndex = 0;
+
+  const segments: Segment[] = [];
+  let i = 0;
+  let matched = false;
+
+  for (const match of value.matchAll(regex)) {
+    matched = true;
+    const start = match.index ?? 0;
+    if (start > i) segments.push({ value: value.substring(i, start), match: false });
+    segments.push({ value: match[0], match: true });
+    i = start + match[0].length;
+  }
+
+  if (!matched) return null;
+  if (i < value.length) segments.push({ value: value.substring(i), match: false });
+
+  return segments;
+}
+
+function wrapSegments(
+  nodeType: 'text' | 'inlineCode',
+  segments: Segment[],
+): (Text | InlineCode | Html)[] {
+  const out: (Text | InlineCode | Html)[] = [];
+  for (const segment of segments) {
+    if (segment.match) {
+      out.push({ type: 'html', value: '<mark>' });
+      out.push({ type: nodeType, value: segment.value });
+      out.push({ type: 'html', value: '</mark>' });
+    } else {
+      out.push({ type: nodeType, value: segment.value });
+    }
+  }
+  return out;
 }
 
 function highlightInTree(tree: Root, regex: RegExp) {
-  visit(tree, ['text', 'inlineCode'], (node) => {
-    if (node.type !== 'text' && node.type !== 'inlineCode') return;
-    const isCode = node.type === 'inlineCode';
-
-    let out = '';
-    const content = node.value;
-
-    let i = 0;
-    for (const match of content.matchAll(regex)) {
-      if (i < match.index) {
-        const before = content.substring(i, match.index);
-        out += isCode ? escapeHtml(before) : before;
+  const walk = (parent: { children: RootContent[] }) => {
+    parent.children = parent.children.flatMap((child): RootContent[] => {
+      if (child.type === 'text' || child.type === 'inlineCode') {
+        const segments = splitByRegex(child.value, regex);
+        if (!segments) return [child];
+        return wrapSegments(child.type, segments);
       }
+      if ('children' in child) {
+        walk(child as { children: RootContent[] });
+      }
+      return [child];
+    });
+  };
 
-      out += isCode ? `<mark>${escapeHtml(match[0])}</mark>` : `<mark>${match[0]}</mark>`;
-      i = match.index + match[0].length;
-    }
-
-    if (isCode && i === 0) return;
-
-    if (i < content.length) {
-      const rest = content.substring(i);
-      out += isCode ? escapeHtml(rest) : rest;
-    }
-
-    if (isCode) {
-      out = `<code>${out}</code>`;
-    }
-
-    node.type = 'html' as never;
-    node.value = out;
-  });
+  walk(tree);
 }
