@@ -8,6 +8,9 @@ import { remark } from 'remark';
 
 const parser = remark();
 
+const MARK_STYLE =
+  'background-color: #ffe066; color: #24292e; border-radius: 2px; padding: 0 1px;';
+
 export function parseCodeBlock(content: string): ParsedCodeBlock | null {
   const trimmed = content.trim();
   if (!trimmed) {
@@ -54,7 +57,7 @@ function highlightHastNode(node: Element | Root, regex: RegExp): void {
         children.push({
           type: 'element',
           tagName: 'mark',
-          properties: {},
+          properties: { style: MARK_STYLE },
           children: [{ type: 'text', value: match[0] }],
         });
         lastIndex = start + match[0].length;
