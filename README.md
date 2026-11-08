@@ -1,4 +1,4 @@
-# @rambutanek/meilisearch-fumadocs-adapter
+# meilisearch-fumadocs-adapter
 
 Meilisearch search adapter for [Fumadocs](https://fumadocs.dev), **not** an official Meilisearch or Fumadocs package.
 
@@ -7,7 +7,7 @@ Search results are built server-side from your Meilisearch index: hits are mappe
 ## Install
 
 ```bash
-npm install @rambutanek/meilisearch-fumadocs-adapter meilisearch
+npm install meilisearch-fumadocs-adapter meilisearch
 ```
 
 `meilisearch` (the SDK) and `react` are peer dependencies — provide your own instances.
@@ -90,43 +90,6 @@ export const GET = async (request: Request) => {
 ```
 
 ## Client — the search hook
-
-```tsx
-'use client';
-import { useMeilisearchSearch } from '@rambutanek/meilisearch-fumadocs-adapter/client';
-
-export function MySearchDialog() {
-  const { search, setSearch, query, loadMore, isLoadingMore, hasMore } = useMeilisearchSearch({
-    route: '/api/meilisearch-search',
-    filtersRoute: '/api/meilisearch-filters',
-  });
-
-  if (query.isLoading) return <p>Searching…</p>;
-  if (query.error) return <p>{query.error.message}</p>;
-
-  const results = query.data === 'empty' || !query.data ? [] : query.data;
-
-  return (
-    <>
-      <input value={search} onChange={(e) => setSearch(e.target.value)} />
-      <ul>
-        {results.map((r) => (
-          <li key={r.id}>
-            <a href={r.url}>
-              {r.breadcrumbs?.join(' / ')} — {r.content}
-            </a>
-          </li>
-        ))}
-      </ul>
-      {hasMore && (
-        <button onClick={loadMore} disabled={isLoadingMore}>
-          Load more
-        </button>
-      )}
-    </>
-  );
-}
-```
 
 `content` is sanitized HTML containing `<mark>` elements for query matches and, for code hits, a Shiki-highlighted block — render it with `dangerouslySetInnerHTML`.
 
