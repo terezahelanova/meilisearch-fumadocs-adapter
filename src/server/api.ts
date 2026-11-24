@@ -14,7 +14,11 @@ export function createMeilisearchAPI(options: MeilisearchOptions): SearchAPI {
   const { indexUid, client, filterAttribute, filterAttributeValue, language, transformUrl } =
     options;
 
-  async function searchPage(query: string, page: number): Promise<PagedResults> {
+  async function searchPage(
+    query: string,
+    page: number,
+    selectedFilterValue = filterAttributeValue,
+  ): Promise<PagedResults> {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
       return EMPTY_PAGE;
@@ -27,7 +31,7 @@ export function createMeilisearchAPI(options: MeilisearchOptions): SearchAPI {
 
     while (true) {
       const response = await index.search(trimmedQuery, {
-        filter: createFilter(filterAttribute, filterAttributeValue, language),
+        filter: createFilter(filterAttribute, selectedFilterValue, language),
         attributesToHighlight: ['heading', 'rawContent'],
         highlightPreTag: '<mark>',
         highlightPostTag: '</mark>',
@@ -74,7 +78,23 @@ export function createMeilisearchAPI(options: MeilisearchOptions): SearchAPI {
       const page = Number(url.searchParams.get('page'));
       const pageNumber = Number.isInteger(page) && page > 0 ? page : 1;
 
-      return Response.json(await searchPage(query, pageNumber));
+      const selectedFilterValue = url.searchParams.get('filterAttributeValue');
+      if (selectedFilterValue !== null) {
+        // Clients may choose a facet *value*, but never the facet attribute.
+        if (!filterAttribute) {
+          return Response.json({ error: 'Filtering is not enabled.' }, { status: 400 });
+        }
+        // Reject arbitrary values rather than inserting unchecked client input
+        // into Meilisearch filter expressions.
+        const allowedValues = await fetchFilters(options);
+        if (!allowedValues.includes(selectedFilterValue)) {
+          return Response.json({ error: 'Invalid filter value.' }, { status: 400 });
+        }
+      }
+
+      return Response.json(
+        await searchPage(query, pageNumber, selectedFilterValue ?? filterAttributeValue),
+      );
     },
   };
 }
@@ -109,7 +129,13 @@ export function createUrlNormalizer({
       return `/${localeMatch[1]}${cleanBase ?? ''}${localeMatch[2]}`;
     }
 
-    if (cleanBase && !url.startsWith(cleanBase)) {
+    if (
+      cleanBase &&
+      url !== cleanBase &&
+      !url.startsWith(`${cleanBase}/`) &&
+      !url.startsWith(`${cleanBase}#`) &&
+      !url.startsWith(`${cleanBase}?`)
+    ) {
       return `${cleanBase}${url}`;
     }
     return url;

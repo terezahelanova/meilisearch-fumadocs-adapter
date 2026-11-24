@@ -8,8 +8,7 @@ import { remark } from 'remark';
 
 const parser = remark();
 
-const MARK_STYLE =
-  'background-color: #ffe066; color: #24292e; border-radius: 2px; padding: 0 1px;';
+const MARK_STYLE = 'background-color: #ffe066; color: #24292e; border-radius: 2px; padding: 0 1px;';
 
 export function parseCodeBlock(content: string): ParsedCodeBlock | null {
   const trimmed = content.trim();
@@ -93,9 +92,14 @@ export async function highlightCodeBlock(
     },
   };
 
-  return codeToHtml(codeBlock.code, {
-    lang: codeBlock.lang,
+  const options = {
     theme: 'one-dark-pro',
     transformers: [wordHighlightTransformer, blockHeightTransformer],
-  });
+  };
+
+  try {
+    return await codeToHtml(codeBlock.code, { ...options, lang: codeBlock.lang });
+  } catch {
+    return codeToHtml(codeBlock.code, { ...options, lang: 'text' });
+  }
 }

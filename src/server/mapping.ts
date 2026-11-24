@@ -3,6 +3,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMdx from 'remark-mdx';
 import remarkRehype from 'remark-rehype';
 import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import { toHtml } from 'hast-util-to-html';
 import type { Element, ElementContent, Root as HastRoot, RootContent, Text } from 'hast';
 import type { Content, Parent, Root } from 'mdast';
@@ -26,7 +27,7 @@ export async function mapHitsToSortedResults(
   for (const hit of hits) {
     const url = transformUrl(hit.url);
     const heading = hit.heading ?? '';
-    const sectionKey = `${hit.pageTitle} ${heading}`;
+    const sectionKey = `${url} ${heading}`;
 
     const contentMatched = (hit._formatted?.rawContent ?? '').includes('<mark>');
 
@@ -126,18 +127,20 @@ function strongParagraph(text: string): Element {
 }
 
 function createProcessor(strict: boolean) {
-  return (strict ? remark().use(remarkMdx) : remark())
-    .use(remarkGfm)
-    .use(remarkRehype, {
-      allowDangerousHtml: true,
-      unknownHandler: () => [],
-      handlers: {
-        mdxJsxFlowElement: mdxJsxHandler,
-        mdxJsxTextElement: mdxJsxHandler,
-        // image: () => [],
-      },
-    } as RemarkRehypeOptions)
-    .use(rehypeRaw);
+  return (
+    (strict ? remark().use(remarkMdx) : remark())
+      .use(remarkGfm)
+      .use(remarkRehype, {
+        allowDangerousHtml: true,
+        unknownHandler: () => [],
+        handlers: {
+          mdxJsxFlowElement: mdxJsxHandler,
+          mdxJsxTextElement: mdxJsxHandler,
+        },
+      } as RemarkRehypeOptions)
+      .use(rehypeRaw)
+      .use(rehypeSanitize)
+  );
 }
 
 async function toHighlightedHast(rawContent: string, query: string): Promise<HastRoot> {

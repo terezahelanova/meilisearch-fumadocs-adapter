@@ -1,7 +1,3 @@
-import type { createContentHighlighter } from './highlight';
-
-export type Highlighter = ReturnType<typeof createContentHighlighter>;
-
 /**
  * Meilisearch documents are expected to contain:
  * - url: Page path including anchor (e.g., "/guide#installation")

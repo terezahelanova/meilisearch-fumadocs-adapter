@@ -3,10 +3,6 @@ import type { PagedResults, SortedResult } from './contracts';
 
 export interface MeilisearchClientOptions {
   /**
-   * Attribute name used for filtering.
-   */
-  filterAttribute?: string;
-  /**
    * Concrete value of 'filterAttribute' to filter results by.
    */
   filterAttributeValue?: string;
@@ -30,10 +26,6 @@ export interface MeilisearchClientOptions {
 
 export interface MeilisearchFilterOptions {
   /**
-   * Attribute name used for filtering.
-   */
-  filterAttribute: string;
-  /**
    * Route of the filters API endpoint.
    *
    * @defaultValue `/api/meilisearch-filters`
@@ -42,17 +34,11 @@ export interface MeilisearchFilterOptions {
 }
 
 function buildSearchUrl(query: string, page: number, options: MeilisearchClientOptions): URL {
-  const {
-    filterAttribute,
-    filterAttributeValue,
-    language,
-    route = '/api/meilisearch-search',
-  } = options;
+  const { filterAttributeValue, language, route = '/api/meilisearch-search' } = options;
 
   const url = new URL(route, window.location.origin);
   url.searchParams.set('query', query);
   url.searchParams.set('page', String(page));
-  if (filterAttribute) url.searchParams.set('filterAttribute', filterAttribute);
   if (filterAttributeValue) url.searchParams.set('filterAttributeValue', filterAttributeValue);
   if (language) url.searchParams.set('language', language);
 
@@ -71,12 +57,10 @@ export async function meilisearchSearchPage(
 }
 
 export async function meilisearchFilters({
-  filterAttribute,
   filtersRoute = '/api/meilisearch-filters',
-}: MeilisearchFilterOptions): Promise<string[]> {
+}: MeilisearchFilterOptions = {}): Promise<string[]> {
   const url = new URL(filtersRoute, window.location.origin);
 
-  if (filterAttribute) url.searchParams.set('filterAttribute', filterAttribute);
   const res = await fetch(url);
   if (!res.ok) throw new Error(await res.text());
   const result = (await res.json()) as string[];
